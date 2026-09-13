@@ -19,10 +19,15 @@ def test_to_api_symbol_strips_ccxt_settle_suffix():
     assert to_api_symbol("BTCUSDT") == "BTCUSDT"
 
 
+def test_to_api_symbol_strips_hedge_mode_position_side_suffix():
+    assert to_api_symbol("BTCUSDT:LONG") == "BTCUSDT"
+
+
 def test_to_api_symbol_prefers_position_symbol():
     assert to_api_symbol("BTCUSDT", {"symbol": "BTC/USDT:USDT"}) == "BTC/USDT"
 
 
 def test_algo_order_dead_statuses_are_terminal():
     assert "CANCELLED" in ALGO_ORDER_DEAD_STATUSES
+    assert "REJECTED" in ALGO_ORDER_DEAD_STATUSES
     assert "NEW" not in ALGO_ORDER_DEAD_STATUSES
