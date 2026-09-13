@@ -4,13 +4,30 @@ build-backend = "hatchling.build"
 
 [project]
 name = "binance-quant-engine"
-version = "0.1.1"
+version = "0.1.2"
 description = "Strategy-agnostic Binance USDT-M futures backtest & execution engine — no-look-ahead, backtest/live parity, optional MCP server"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
-keywords = ["quant", "backtest", "trading", "binance", "futures", "execution", "algo-trading", "mcp"]
+keywords = [
+    "quant", "quantitative-trading", "backtest", "backtesting", "trading",
+    "binance", "binance-futures", "crypto", "cryptocurrency", "futures",
+    "algo-trading", "algorithmic-trading", "trading-bot", "execution", "mcp",
+    "model-context-protocol",
+]
 authors = [{ name = "Younghwan Chae", email = "chyohw97@gmail.com" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Office/Business :: Financial :: Investment",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.0",
@@ -27,8 +44,11 @@ bqe-backtest = "binance_quant_engine.backtest.vectorized:main"
 binance-quant-engine-mcp = "binance_quant_engine.mcp.server:main"
 
 [project.urls]
-Homepage = "https://pypi.org/project/binance-quant-engine/"
+Homepage = "https://github.com/younghwan91/binance-quant-engine"
 Repository = "https://github.com/younghwan91/binance-quant-engine"
+Documentation = "https://github.com/younghwan91/binance-quant-engine/blob/main/docs/USAGE.md"
+"Bug Tracker" = "https://github.com/younghwan91/binance-quant-engine/issues"
+Changelog = "https://github.com/younghwan91/binance-quant-engine/releases"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/binance_quant_engine"]

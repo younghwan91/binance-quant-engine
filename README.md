@@ -88,12 +88,12 @@ flowchart LR
     subgraph Decide["binance_quant_engine/strategy/ — decide"]
         PROTO{{"TradingStrategy\n(PEP 544 protocol)"}}
         SQZ["demo_squeeze.py\nSqueezeStrategy"]
-        PROTO -.implements.-> SQZ
+        PROTO -.->|"implements"| SQZ
     end
 
     CSV --> BT
     SYN --> BT
-    CACHE -.caches.-> CSV
+    CACHE -.->|"caches"| CSV
 
     subgraph Measure["binance_quant_engine/backtest/ — measure"]
         BT["vectorized.run_backtest()\nhands close[:t+1] only\n(no look-ahead)"]
@@ -115,9 +115,9 @@ flowchart LR
     subgraph MCP["binance_quant_engine/mcp/ — optional (.[mcp])"]
         SRV["server.py\nrun_demo_backtest · backtest_csv"]
     end
-    BT -.callable via.-> SRV
+    BT -.->|"callable via"| SRV
 
-    PROTO ==same interface\n(backtest = live)==> HOST
+    PROTO ==>|"same interface<br/>(backtest = live)"| HOST
     ALGO --> BINANCE[("Binance USDT-M\nFutures Algo Order API")]
 ```
 
