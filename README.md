@@ -4,8 +4,6 @@
 [![PyPI](https://img.shields.io/pypi/v/binance-quant-engine.svg)](https://pypi.org/project/binance-quant-engine/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/younghwan91/binance-quant-engine?style=social)](https://github.com/younghwan91/binance-quant-engine)
-[![GitHub forks](https://img.shields.io/github/forks/younghwan91/binance-quant-engine?style=social)](https://github.com/younghwan91/binance-quant-engine)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-younghwan--chae-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/younghwan-chae/)
 
 **A strategy-agnostic Binance USDT-M futures backtest & execution engine.** Backtest and live trading run through the *same* strategy code, so a look-ahead bug can't exist in one and not the other — and an [MCP server](#mcp-server-let-an-agent-run-your-backtests) lets any MCP-compatible agent run backtests without writing a line of Python.
@@ -126,14 +124,12 @@ flowchart LR
 - How to plug in a strategy and wire up live execution → [docs/USAGE.md](docs/USAGE.md)
 - Design rationale for no-look-ahead, backtest/live parity, and the cost model → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
-## ⭐ Star History & Contributing
+## Contributing & Issues
 
-[![Star History Chart](https://api.star-history.com/svg?repos=younghwan91/binance-quant-engine&type=Date)](https://star-history.com/#younghwan91/binance-quant-engine&Date)
-
-If you find this futures engine or its zero-lookahead framework helpful, please **[⭐ Star this repository](https://github.com/younghwan91/binance-quant-engine)**!
 - 🐛 Bugs & questions → [Issues](https://github.com/younghwan91/binance-quant-engine/issues)
 - 🔧 PRs and contributions welcome!
 - 📈 Updates → [Follow @younghwan91](https://github.com/younghwan91)
+
 
 ## Related projects — open-source quant stack
 
