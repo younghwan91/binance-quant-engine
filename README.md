@@ -49,7 +49,64 @@ print(result.summary())
 # {'n_trades': ..., 'total_return': ..., 'win_rate': ..., 'profit_factor': ..., 'max_drawdown': ...}
 ```
 
-Bring your own strategy by implementing [`TradingStrategy`](src/binance_quant_engine/strategy/protocol.py) — a `typing.Protocol`, no base class required. Wiring it into live execution: [docs/USAGE.md](docs/USAGE.md).
+Bring your own strategy by implementing [`TradingStrategy`](src/binance_quant_engine/strategy/protocol.py) — a `typing.Protocol`, no base class required.
+
+### Custom strategy example
+
+Implementing the protocol requires no inheritance (PEP 544 structural subtyping). The engine runs the exact same methods in backtest and live modes:
+
+```python
+import numpy as np
+from binance_quant_engine.backtest.vectorized import run_backtest
+from binance_quant_engine.data.klines import load_csv
+
+class SimpleMomentumStrategy:
+    """10-bar momentum with 2% hard stop-loss."""
+    def __init__(self, lookback: int = 10, stop_loss: float = 0.02):
+        self.lookback = lookback
+        self.stop_loss = stop_loss
+        self._positions: dict[str, dict] = {}
+        self._close: dict[str, np.ndarray] = {}
+
+    @property
+    def active_positions(self) -> dict[str, dict]:
+        return {k: dict(v) for k, v in self._positions.items()}
+
+    def has_position(self, symbol: str) -> bool:
+        return symbol in self._positions
+
+    def update_market_data(self, symbol: str, high: np.ndarray, low: np.ndarray, close: np.ndarray) -> None:
+        self._close[symbol] = close  # engine passes completed bars close[:t+1] only
+
+    def on_bar(self, symbol: str, close: np.ndarray) -> int:
+        c = self._close.get(symbol, close)
+        if len(c) < self.lookback + 1:
+            return 0
+        return 1 if c[-1] > c[-self.lookback] else -1  # 1=long, -1=short, 0=flat
+
+    def get_last_atr_pct(self, symbol: str) -> float:
+        return 0.01  # volatility proxy for position sizing
+
+    def open_position(self, symbol: str, signal: int, entry_price: float, atr_pct: float) -> None:
+        self._positions[symbol] = {"signal": signal, "entry_price": entry_price}
+
+    def update_position(self, symbol: str, price: float, high: float | None = None, low: float | None = None) -> str | None:
+        pos = self._positions.get(symbol)
+        if not pos:
+            return None
+        pnl = (price - pos["entry_price"]) / pos["entry_price"] if pos["signal"] == 1 else (pos["entry_price"] - price) / pos["entry_price"]
+        return "stop_loss" if pnl <= -self.stop_loss else None
+
+    def close_position(self, symbol: str) -> dict | None:
+        return self._positions.pop(symbol, None)
+
+# Run backtest with identical interface as live execution
+high, low, close = load_csv("BTCUSDT_1h.csv")
+result = run_backtest(SimpleMomentumStrategy(), high, low, close, fee=0.0004, slippage=0.0002)
+print(result.summary())
+```
+
+For live execution wiring and bracket algo order setups: [docs/USAGE.md](docs/USAGE.md).
 
 ## MCP server — let an agent run your backtests
 
