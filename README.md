@@ -6,6 +6,11 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-younghwan--chae-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/younghwan-chae/)
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/hero-dark.png">
+  <img alt="One trade on BTCUSDT 4h candles: take-profit and stop-loss drawn from the entry bar onward, because they are placed as exchange-side algo orders at entry; backtest and live run the same code path" src="docs/images/hero-light.png" width="100%">
+</picture>
+
 **A strategy-agnostic Binance USDT-M futures backtest & execution engine.** Backtest and live trading run through the *same* strategy code, so a look-ahead bug can't exist in one and not the other — and an [MCP server](#mcp-server-let-an-agent-run-your-backtests) lets any MCP-compatible agent run backtests without writing a line of Python.
 
 Extracted from the infra layer of a real, currently-running Binance USDT-M futures bot — the alpha (strategy, parameters, live P&L) stays private; what's public is the part every retail algo trader rebuilds badly at least once: a backtester that can't cheat, and an execution layer that survives Binance's actual API quirks. The bundled demo strategy is textbook logic (Bollinger squeeze); it exists to exercise the engine end to end, not to make you money.
