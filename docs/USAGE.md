@@ -25,7 +25,7 @@ print(result.summary())
 
 `result.trades` 에 개별 트레이드(진입·청산 인덱스, 청산 사유, net 수익률)가 들어 있다. 수수료와 슬리피지는 진입·청산 양쪽 레그에 매겨지므로 지표는 모두 net 이다. 펀딩비는 모델에 없다.
 
-키도 네트워크도 없이 돌려보려면 `binance_quant_engine.data.klines.synth_ohlcv` 로 합성 데이터를 만들면 된다. `qbe-backtest --demo` 가 쓰는 게 이것이다.
+키도 네트워크도 없이 돌려보려면 `binance_quant_engine.data.klines.synth_ohlcv` 로 합성 데이터를 만들면 된다. `bqe-backtest --demo` 가 쓰는 게 이것이다.
 
 ## 2. 내 전략 붙이기
 
