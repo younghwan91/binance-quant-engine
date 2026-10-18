@@ -1,5 +1,7 @@
 # Binance Quant Engine ⚙️
 
+**Strategy-agnostic Binance USDT-M futures engine — zero look-ahead, backtest and live run the same code path, exits placed as exchange-side algo orders at entry. Optional MCP server.**
+
 [![CI](https://github.com/younghwan91/binance-quant-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/younghwan91/binance-quant-engine/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/binance-quant-engine.svg)](https://pypi.org/project/binance-quant-engine/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
@@ -11,37 +13,29 @@
   <img alt="One trade on BTCUSDT 4h candles: take-profit and stop-loss drawn from the entry bar onward, because they are placed as exchange-side algo orders at entry; backtest and live run the same code path" src="docs/images/hero-light.png" width="100%">
 </picture>
 
-**A strategy-agnostic Binance USDT-M futures backtest & execution engine.** Backtest and live trading run through the *same* strategy code, so a look-ahead bug can't exist in one and not the other — and an [MCP server](#mcp-server-let-an-agent-run-your-backtests) lets any MCP-compatible agent run backtests without writing a line of Python.
+- **The exchange holds your exits.** Stop-loss, take-profit and trailing stop go to Binance's Algo Order API the moment a position opens — if your process dies, the trade still closes. ([brackets.py](src/binance_quant_engine/execution/brackets.py))
+- **One strategy object, one call order.** The backtester drives a `TradingStrategy` exactly as the live bot it was extracted from does — same methods, same order — so a bug can't exist in one path and not the other. This repo ships the backtester, the protocol and the execution mixins; the live driver stays private.
+- **No future in the array.** At bar `t` the strategy is handed `close[:t+1]` and nothing else — [enforced by a test](tests/test_backtest.py).
 
-Extracted from the infra layer of a real, currently-running Binance USDT-M futures bot — the alpha (strategy, parameters, live P&L) stays private; what's public is the part every retail algo trader rebuilds badly at least once: a backtester that can't cheat, and an execution layer that survives Binance's actual API quirks. The bundled demo strategy is textbook logic (Bollinger squeeze); it exists to exercise the engine end to end, not to make you money.
-
-> This repository supersedes `quantbox-engine`, which is no longer maintained. If you have that repo cloned, switch to this one.
-
-## Why not just write your own backtest loop?
-
-Because the failure modes here are the ones that quietly wreck a real account, not the ones a unit test catches:
-
-| Problem | What usually happens | What this engine does |
-|---|---|---|
-| Look-ahead bias | A signal computed over a full array accidentally sees future bars | The backtester physically hands the strategy only `close[: t + 1]` each step — there is no future in the array to peek at ([enforced by test](tests/test_backtest.py)) |
-| Backtest/live divergence | Backtest logic gets "ported" to the live bot and drifts | One `TradingStrategy` object, same method calls, same order, in both paths |
-| Binance tick-size rejection | A price a float-division away from the tick grid gets silently rejected or mispriced | [`round_to_tick`](src/binance_quant_engine/execution/utils.py) snaps every stop/limit/activation price to the symbol's grid before it leaves the process |
-| Dead-man's switch | Bot crashes → open position has no stop-loss | SL/TP/trailing stops are placed **on Binance's Algo Order API**, so the exchange — not your process — enforces the exit |
+This is the engine, not the alpha. It was extracted from the infrastructure of a private, running futures bot; strategies, parameters, live results and the live driver itself stay there. The bundled Bollinger-squeeze demo only exists to exercise the engine end to end.
 
 ## Quick start
 
 ```bash
-pip install binance-quant-engine
-# or: uv add binance-quant-engine
-
-bqe-backtest --demo      # backtest the bundled demo strategy on synthetic data
+pip install binance-quant-engine      # or: uv add binance-quant-engine
+bqe-backtest --demo                   # demo strategy on synthetic data, no keys, no network
 ```
 
-![Demo backtest run](docs/images/demo-backtest.png)
+```text
+Binance Quant Engine — demo backtest (Bollinger squeeze, synthetic data)
+  trades        : 19
+  total return  : +6.00%
+  win rate      : 68.4%
+  profit factor : 1.33
+  max drawdown  : -6.27%
+```
 
-> ⚠️ The numbers above are from a **demo strategy on synthetic data**. They prove the engine runs; they say nothing about profitability.
-
-## Backtest your own data
+⚠️ Synthetic data, textbook demo strategy: this proves the engine runs and says nothing about profitability.
 
 ```python
 from binance_quant_engine.backtest.vectorized import run_backtest
@@ -54,11 +48,29 @@ print(result.summary())
 # {'n_trades': ..., 'total_return': ..., 'win_rate': ..., 'profit_factor': ..., 'max_drawdown': ...}
 ```
 
-Bring your own strategy by implementing [`TradingStrategy`](src/binance_quant_engine/strategy/protocol.py) — a `typing.Protocol`, no base class required.
+## What it does
 
-### Custom strategy example
+- **Backtest** — `run_backtest()` steps a strategy bar by bar over one OHLC series and returns trades, equity curve and max drawdown. Taker fee and slippage are charged on both legs; every number is net.
+- **Strategy interface** — [`TradingStrategy`](src/binance_quant_engine/strategy/protocol.py) is a `typing.Protocol` (PEP 544): implement the methods, no base class.
+- **Live execution** (`.[live]`) — a `BracketMixin` that places SL / TP / `TRAILING_STOP_MARKET` as Binance algo orders at entry, ratchets the stop-loss order upward (place-new-then-cancel-old), lets Binance trail the `TRAILING_STOP_MARKET`, verifies brackets are still alive and recognises the terminal statuses, `REJECTED` included.
+- **Data** — `load_csv()` for your own klines, `synth_ohlcv()` for a deterministic series with alternating volatility regimes, a memory + gzip cache.
 
-Implementing the protocol requires no inheritance (PEP 544 structural subtyping). The engine runs the exact same methods in backtest and live modes:
+## Why it is built this way
+
+| Failure mode | What usually happens | What this engine does |
+|---|---|---|
+| Look-ahead bias | A signal computed over the full array quietly sees future bars | The backtester hands the strategy only `close[:t+1]` each step; a test asserts the strategy never sees past `t` |
+| Backtest / live divergence | Backtest logic is "ported" to the bot and drifts | One `TradingStrategy` object, same calls, same order — the live bot it was extracted from drives it exactly as the backtester does |
+| Bot crashes with a position open | No stop-loss, until you notice | Exits live on Binance's Algo Order API, so the exchange enforces them |
+| Tick-size rejection | A price one float division off the grid is rejected or mispriced | [`round_to_tick`](src/binance_quant_engine/execution/utils.py) snaps every outgoing stop, limit and activation price to the symbol's grid |
+| Agent with a live key | An LLM tool call places a real order | The MCP server is backtest-only by construction; trading is something you wire yourself, explicitly |
+
+## Bring your own strategy
+
+Implement the protocol, no inheritance. The backtester runs exactly these methods, and the live bot it was extracted from runs the same ones. Signals are `-1` short, `0` flat, `+1` long.
+
+<details>
+<summary>Self-contained example: 10-bar momentum with a 2 % hard stop</summary>
 
 ```python
 import numpy as np
@@ -111,7 +123,7 @@ result = run_backtest(SimpleMomentumStrategy(), high, low, close, fee=0.0004, sl
 print(result.summary())
 ```
 
-For live execution wiring and bracket algo order setups: [docs/USAGE.md](docs/USAGE.md).
+</details>
 
 ## MCP server — let an agent run your backtests
 
@@ -120,20 +132,7 @@ pip install "binance-quant-engine[mcp]"
 binance-quant-engine-mcp   # stdio MCP server
 ```
 
-Exposes `run_demo_backtest`, `backtest_csv`, and `describe_strategy_protocol` to any MCP client (Claude Code, Claude Desktop, etc.) — point an agent at a CSV of OHLC data and it can backtest a strategy idea in the same turn, no local Python environment required on the agent's side.
-
-**This is deliberately backtest-only.** Nothing under `execution/` (order placement, cancellation, bracket management) is reachable through the MCP server — there is no tool call that can touch a live Binance order. If you want an agent that also *trades*, that's a decision you wire yourself, explicitly, outside this server.
-
-## Design
-
-| Design choice | How |
-|---|---|
-| **No-look-ahead by construction** | The backtester hands the strategy `close[:t+1]` (bars completed as of now) every step — there's no future in the array to see. |
-| **Backtest = live, same code** | The same `TradingStrategy` object is driven by the backtester and the live bot, in the same call order. No reimplementation gap. |
-| **Pluggable strategy** | The engine only ever talks to a strategy through [`TradingStrategy`](src/binance_quant_engine/strategy/protocol.py) (PEP 544). No inheritance required. |
-| **Costs are net, not gross** | Taker fee + slippage charged on both entry and exit legs. |
-| **Server-side exits** | SL/TP/trailing stops live on Binance's Algo Order API — the exchange enforces them even if your process dies. ([brackets.py](src/binance_quant_engine/execution/brackets.py)) |
-| **Tick-safe prices** | Every price sent to the exchange is snapped to the symbol's tick grid first ([utils.py](src/binance_quant_engine/execution/utils.py)) — a category of Binance rejection this engine doesn't have. |
+Exposes `run_demo_backtest`, `backtest_csv` and `describe_strategy_protocol` to any MCP client (Claude Code, Claude Desktop, …): hand an agent a CSV of OHLC data and it can backtest an idea in the same turn. There is no tool that can touch a live order.
 
 ## Structure
 
@@ -166,7 +165,7 @@ flowchart LR
     BT <-->|"update_market_data / on_bar\nopen·update·close_position"| PROTO
 
     subgraph Execute["binance_quant_engine/execution/ — execute (.[live])"]
-        HOST["host.py\nScalperProtocol (live bot host)"]
+        HOST["host.py\nScalperProtocol (host interface)"]
         BRACKET["brackets.py\nBracketMixin — SL/TP/trailing"]
         UTIL["utils.py\nround_to_tick · dead-status set"]
         ALGO["algo_api.py\nAlgoApiClient"]
@@ -179,19 +178,27 @@ flowchart LR
     end
     BT -.->|"callable via"| SRV
 
-    PROTO ==>|"same interface<br/>(backtest = live)"| HOST
+    PROTO ==>|"same interface<br/>(live driver outside this repo)"| HOST
     ALGO --> BINANCE[("Binance USDT-M\nFutures Algo Order API")]
 ```
 
-- How to plug in a strategy and wire up live execution → [docs/USAGE.md](docs/USAGE.md)
-- Design rationale for no-look-ahead, backtest/live parity, and the cost model → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Plug in a strategy, wire up live execution → [docs/USAGE.md](docs/USAGE.md)
+- No-look-ahead, backtest/live parity, execution layer, cost model → [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+## Install, configure, develop
+
+```bash
+pip install binance-quant-engine            # backtests only: numpy + pandas
+pip install "binance-quant-engine[live]"    # + python-binance; cp .env.example .env (API key, secret, testnet flag; .env is gitignored)
+pip install "binance-quant-engine[mcp]"     # + mcp
+uv pip install -e ".[dev]" && uv run pytest -q && uv run ruff check .   # contributing; tests need no network or key
+```
 
 ## Contributing & Issues
 
 - 🐛 Bugs & questions → [Issues](https://github.com/younghwan91/binance-quant-engine/issues)
 - 🔧 PRs and contributions welcome!
 - 📈 Updates → [Follow @younghwan91](https://github.com/younghwan91)
-
 
 ## Related projects — open-source quant stack
 

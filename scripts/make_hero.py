@@ -99,13 +99,16 @@ def main() -> int:
         # 진입/청산 마커
         ax.plot(ex, entry, "o", ms=11, color=p["green"], mec=p["surface"], mew=2, zorder=6,
                 label=f"Entry ({side})")
+        # 마커는 트리거 레벨(TP/SL 선) 위에 — 라이브에선 알고 주문이 그 가격에서 체결된다.
         xcol = p["blue"] if hit_tp else p["amber"]
-        ax.plot(xx, tr.exit_price, "D", ms=10, color=xcol, mec=p["surface"], mew=2, zorder=6,
-                label="Exit, " + ("take-profit filled" if hit_tp else "stop-loss filled"))
+        exit_lvl = tp if hit_tp else sl
+        ax.plot(xx, exit_lvl, "D", ms=10, color=xcol, mec=p["surface"], mew=2, zorder=6,
+                label="Exit, " + ("take-profit triggered" if hit_tp else "stop-loss triggered"))
         ax.annotate("entry", (ex, entry), xytext=(-14, -28), textcoords="offset points",
                     color=p["ink"], fontsize=10.5, ha="right",
                     arrowprops=dict(arrowstyle="-", color=p["ink3"], lw=1))
-        ax.annotate("exit", (xx, tr.exit_price), xytext=(14, 22 if hit_tp else -26), textcoords="offset points",
+        ax.annotate("exit (TP trigger)" if hit_tp else "exit (SL trigger)", (xx, exit_lvl),
+                    xytext=(16, -30 if hit_tp else 24), textcoords="offset points",
                     color=p["ink"], fontsize=10.5, ha="left",
                     arrowprops=dict(arrowstyle="-", color=p["ink3"], lw=1))
         # 범례용 캔들 프록시
@@ -129,8 +132,8 @@ def main() -> int:
         t0, t1 = w.open_time.iloc[0], w.open_time.iloc[-1]
         caption(fig, f"Data: Binance USDT-M futures public klines, {SYMBOL} {INTERVAL}, "
                      f"{t0:%Y-%m-%d %H:%M} – {t1:%Y-%m-%d %H:%M} UTC (no API key).\n"
-                     f"One trade from the bundled demo backtest; exits evaluated by the same code path as live. "
-                     f"Generated {GENERATED}.", p)
+                     f"One trade from the bundled demo backtest. The demo backtester books this exit at the bar's close "
+                     f"({tr.exit_price:,.0f}); a live algo order fills at the trigger. Generated {GENERATED}.", p)
 
     paths = render_both(draw, out_dir=str(ROOT / "docs/images"), name="hero", figsize=(12, 5))
     print("trade:", tr, "\nwritten:", *paths)
